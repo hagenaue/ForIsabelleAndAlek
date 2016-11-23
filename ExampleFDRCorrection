@@ -1,0 +1,105 @@
+#STEP 16:  Running a linear model to examine the effects of diagnosis while accounting for potential confounding factors: 
+
+##1. The confounding factors should be chosen based on previous literature or based on which variables were flagged as being related to the PC's or diagnosis.
+###For example, in the lateral amygdala, these variables are related to diagnosis:
+####A. HoursFinalNoOutliers
+####B. SuicidenoOutliers (duh!)
+
+###And these variables are related to the PCs:
+####A. DiagnosisNoOutliers (PC1)**
+####B. HoursFinalNoOutliers (PC1, PC3 = borderline sig)
+####C. SuicideNoOutliers (PC1)**
+####D. CohortNoOutliers (PC1)
+####E. LocationOnChipNoOutliers (PC2)
+####F. AgeNoOutliers (PC2)
+####G. GenderNoOutliers (PC2)**
+####H. BrainpHNoOutliers (PC3, PC4 - borderline sig)
+
+##Note that not all of these variables are worth including in the model. 
+##For example, it is probably worth running suicide or overdose as a separate analysis since I believe all suicides and overdoses are MDD subjects.
+##HoursCold and RNAAge both have extreme values that make them prone to producing false positives in statistical tests. They are also highly correlated with Cohort.
+##I'm probably going to skip Cohort and LocationOnChip for right now, since they are mutifactor variables and not quite as sig. related to the PCs as other variables
+
+##2. Insert those variables into this code, placing diagnosis as the first variable.
+
+LinearModel1<-function(i){lm(normNoOutliers[i,]~DiagnosisNoOutliers+AgeNoOutliers+RNAintegrityNoOutliers+RNAconcNoOutliers+BrainpHNoOutliers+GenderNoOutliers+HoursFinalCorrectedNoOutliers)}
+
+
+##3. Then run this code (Ctrl+R) to get the p-values:
+
+
+#***CODE TO RUN FOR STEP 17****
+
+#Determining how many variables are in the linear model (since LM breaks factors down into dummy variables)
+NumberofXsLM1<-length(summary.lm(LinearModel1(1))$coefficients[,1])
+NameofXsLM1<-dimnames(summary.lm(LinearModel1(1))$coefficients)[1][[1]]
+
+#Running the linear model:
+LM1Betas<-matrix(0, length(normNoOutliers[,1]), NumberofXsLM1)
+colnames(LM1Betas)<-NameofXsLM1
+row.names(LM1Betas)<-row.names(normNoOutliers)
+
+LM1pvalues<-matrix(0, length(normNoOutliers[,1]), NumberofXsLM1)
+colnames(LM1pvalues)<-NameofXsLM1
+row.names(LM1pvalues)<-row.names(normNoOutliers)
+
+LM1SE<-matrix(0, length(normNoOutliers[,1]), NumberofXsLM1)
+colnames(LM1SE)<-NameofXsLM1
+row.names(LM1SE)<-row.names(normNoOutliers)
+
+LM1Tstat<-matrix(0, length(normNoOutliers[,1]), NumberofXsLM1)
+colnames(LM1Tstat)<-NameofXsLM1
+row.names(LM1Tstat)<-row.names(normNoOutliers)
+
+for(i in 1:length(normNoOutliers[,1])){
+	TempLM1<-LinearModel1(i)
+	LM1Betas[i,]<-summary.lm(TempLM1)$coefficients[,1]
+	LM1SE[i,]<-summary.lm(TempLM1)$coefficients[,2]
+	LM1Tstat[i,]<-summary.lm(TempLM1)$coefficients[,3]
+	LM1pvalues[i,]<-summary.lm(TempLM1)$coefficients[,4]
+}
+
+
+#Outputting a histogram illustrating the raw p-values in comparison to what would be expected by chance:
+for (i in 1:NumberofXsLM1){
+png(paste(paste("17 Histogram of Unadjusted Pvalues Using LM1 for", NameofXsLM1[i], sep="  "), "png", sep="."))	
+hist(LM1pvalues[,i], breaks=100, col=i, main=paste("Unadjusted P-values using LM1 for", NameofXsLM1[i], sep="  "), xlab="Unadjusted p-value", ylab="Count")
+abline(a=(length(normNoOutliers[,1])/100), b=0)
+dev.off()		
+}		
+
+#Outputting the raw pvalues and LM related statistics:
+LM1BetasOutput<-cbind(LM1Betas, GeneIdentifiers_filtered) 
+LM1SEOutput<-cbind(LM1Betas, GeneIdentifiers_filtered)
+LM1TstatOutput<-cbind(LM1Tstat, GeneIdentifiers_filtered)
+LM1pvaluesOutput<-cbind(LM1pvalues, GeneIdentifiers_filtered)
+
+write.csv(LM1BetasOutput, "LM1Betas.csv")
+write.csv(LM1SEOutput, "LM1SE.csv")
+write.csv(LM1TstatOutput, "LM1Tstat.csv")
+write.csv(LM1pvaluesOutput, "LM1pvaluesRAW.csv")
+
+
+#Output for MDD:
+
+#Calculating Fold Change using the two methods most commonly used in our lab:
+FC<-2^LM1Betas[,2]
+
+FCv2<-FC
+
+for(i in 1:length(FC)){
+if(FC[i]>1){FCv2[i]<-FC[i]}else{FCv2[i]<-(-1/FC[i])}
+}
+
+#Applying two different types of multiple-comparison corrections to the raw p-values (Benjamini-Hochberg and Benjamini-Yekutieli):
+TempPvalAdjLM1<-mt.rawp2adjp(LM1pvalues[,2], proc=c("BH", "BY"))
+LM1PvalAdj<-TempPvalAdjLM1$adjp[order(TempPvalAdjLM1$index),]
+row.names(LM1PvalAdj)<-row.names(normNoOutliers)
+
+#Outputting the p-values, betas, and gene identifiers:
+LM1testOutputMDD<-cbind(row.names(normNoOutliers), LM1PvalAdj, LM1Betas[,2], FC, FCv2, NormNoOutliersMedianCTRL, NormNoOutliersMedianMDD, Detection_PvalueMedianCTRL, Detection_PvalueMedianMDD,GeneIdentifiers_filtered)
+row.names(LM1testOutputMDD)<-row.names(normNoOutliers)
+colnames(LM1testOutputMDD)[c(1:11)]<-c("X", "Unadjusted P-value", "BH Adjusted Pvalue", "BY Adjusted Pvalue", "Beta", "FoldChange", "FoldChangev2", "ControlMedianLog2NormSignal", "MDDMedianLog2NormSignal", "ControlMedianDetectionPval", "MDDMedianDetectionPval")
+
+LM1testOutputMDDv2<- join(as.data.frame(LM1testOutputMDD), ProbeInfoOutput, by = "X")
+write.csv(LM1testOutputMDDv2, "LM1testOutputMDDv2.csv")
