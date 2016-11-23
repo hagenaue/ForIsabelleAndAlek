@@ -70,7 +70,7 @@ dev.off()
 
 #Outputting the raw pvalues and LM related statistics:
 LM1BetasOutput<-cbind(LM1Betas, GeneIdentifiers_filtered) 
-LM1SEOutput<-cbind(LM1Betas, GeneIdentifiers_filtered)
+LM1SEOutput<-cbind(LM1SE, GeneIdentifiers_filtered)
 LM1TstatOutput<-cbind(LM1Tstat, GeneIdentifiers_filtered)
 LM1pvaluesOutput<-cbind(LM1pvalues, GeneIdentifiers_filtered)
 
