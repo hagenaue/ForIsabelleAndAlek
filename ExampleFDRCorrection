@@ -91,6 +91,9 @@ for(i in 1:length(FC)){
 if(FC[i]>1){FCv2[i]<-FC[i]}else{FCv2[i]<-(-1/FC[i])}
 }
 
+library(affy)
+library(multtest)
+
 #Applying two different types of multiple-comparison corrections to the raw p-values (Benjamini-Hochberg and Benjamini-Yekutieli):
 TempPvalAdjLM1<-mt.rawp2adjp(LM1pvalues[,2], proc=c("BH", "BY"))
 LM1PvalAdj<-TempPvalAdjLM1$adjp[order(TempPvalAdjLM1$index),]
